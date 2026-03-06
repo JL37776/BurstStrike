@@ -1,0 +1,26 @@
+[Ll]ibrary
+[Tt]emp
+[Oo]bj
+[Bb]uild
+[Bb]uilds
+[Ll]ogs
+[Mm]emoryCaptures
+
+# Asset meta files
+.pidb.meta
+.pdb.meta
+
+# Visual Studio cache
+.vs
+.csproj
+.sln
+.user
+.unityproj
+
+# Rider
+.idea
+.sln.iml
+
+# OS files
+.DS_Store
+Thumbs.db

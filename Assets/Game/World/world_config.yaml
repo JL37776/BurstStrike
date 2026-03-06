@@ -1,0 +1,15 @@
+﻿# World global config (YAML)
+# 0 = every logic tick, otherwise every N logic ticks.
+
+TickRates:
+  Ability:
+    Movement: 0
+    Guard: 0
+    Weapon: 0
+    Navigation: 0
+  Activity:
+    GuardActivity: 0
+    ChaseTarget: 0
+    Navigate: 0
+    Move: 0
+    Idle: 0

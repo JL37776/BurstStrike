@@ -1,0 +1,18 @@
+﻿Id: "weapon01"
+ArchetypeId: 2
+Layer: Tanks
+IsPrimary: false
+UseParentPosition: true
+BindParentRotation: false
+Position: [0, 0, 0]
+AbilityParams:
+  Movement:
+    MaxSpeed: 0
+    Acceleration: 0
+    TurnSpeedDeg: 10
+  BaseWeapon:
+    Damage: 30
+    Range: 10
+Abilities:
+  - "BaseWeapon"
+  - "Movement"

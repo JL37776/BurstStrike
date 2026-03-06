@@ -1,0 +1,26 @@
+Id: "fuchout001"
+ArchetypeId: 1
+Health: 500
+Layer: Tanks
+AlertLayer: Ground
+Prefab: "Tank/Chassis"
+Model: "TankMarkI"
+IsPrimary: true
+UseParentPosition: false
+BindParentRotation: true
+Position: [0, 0, 0]
+Children:
+  - Id: "weapon01"
+AbilityParams:
+  Movement:
+    MaxSpeed: 1
+    Acceleration: 1
+    TurnSpeedDeg: 0
+  Guard:
+    AlertRange: 999
+    AlertLayers: [Ground, LowAir]
+Abilities:
+  - "BaseUnit"
+  - "Movement"
+  - "Navigation"
+  - "Guard"
