@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Command;
@@ -33,7 +33,7 @@ namespace Game.World
         public int randomSeed = 0;
 
         [Tooltip("Path under Assets to YAML sample")]
-        public string yamlAssetPath = "Assets/Game/Serialization/Samples/tank_example.yaml";
+        public string yamlAssetPath = "Assets/Game/Data/Units/Samples/tank_example.yaml";
 
         [Header("Debug Map")]
         [Tooltip("If true, override World's debug map size before it starts logic.")]

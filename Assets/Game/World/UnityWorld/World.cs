@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -516,18 +516,17 @@ namespace Game.World
 
             // Archetypes (deterministic data): preload ALL YAML on main thread, then inject into logic.
             // This is behind an interface so we can swap to network source later.
-            var archetypeSource = new DirectoryYamlArchetypeSource(
-                rootDir: "Assets/Game/Serialization/Samples",
-                recursive: true);
-            var dict = archetypeSource.LoadAll(out var errors);
-            Debug.Log($"[ArchetypeLoad] loaded={dict?.Count ?? 0} from '{"Assets/Game/Serialization/Samples"}'");
-             if (errors != null && errors.Count > 0)
-             {
-                 // Dev-time behavior: log and continue with whatever loaded.
-                 // If you want to hard-fail instead, we can add a bool flag.
-                 for (int i = 0; i < errors.Count; i++)
-                     Debug.LogError("[ArchetypeLoad] " + errors[i]);
-             }
+            var archetypeRootDir = "Assets/Game/Data/Units/Samples";
+            var source = new DirectoryYamlArchetypeSource(archetypeRootDir, recursive: true);
+            var dict = source.LoadAll(out var errors);
+
+            Debug.Log($"[ArchetypeLoad] loaded={dict?.Count ?? 0} from '{archetypeRootDir}'");
+            if (errors != null && errors.Count > 0)
+            {
+                // Dev-time behavior: log and continue with whatever loaded.
+                for (int i = 0; i < errors.Count; i++)
+                    Debug.LogError("[ArchetypeLoad] " + errors[i]);
+            }
 
             var archetypes = new ArchetypeRegistry(dict);
 
