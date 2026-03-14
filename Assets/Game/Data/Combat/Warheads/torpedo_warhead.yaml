@@ -1,0 +1,7 @@
+﻿# Torpedo warhead — devastating vs naval
+Id: torpedo_warhead
+Damage: 80
+DamageType: Torpedo
+VsArmor: [50, 75, 100, 130, 100, 100]
+AffectsAllies: false
+AffectsSelf: false

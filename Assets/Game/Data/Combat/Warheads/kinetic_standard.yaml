@@ -1,0 +1,8 @@
+﻿# Standard kinetic warhead — bullets/MGs
+Id: kinetic_standard
+Damage: 15
+DamageType: Kinetic
+SplashRadius: 0
+VsArmor: [100, 100, 100, 100, 50, 100]
+AffectsAllies: false
+AffectsSelf: false

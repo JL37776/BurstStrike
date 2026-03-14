@@ -1,0 +1,9 @@
+﻿# HE explosive warhead — splash damage
+Id: he_explosive
+Damage: 30
+DamageType: Explosive
+SplashRadius: 1024       # 1 cell radius
+SplashFalloff: [100, 75, 50, 25]
+VsArmor: [100, 100, 75, 50, 100, 75]
+AffectsAllies: false
+AffectsSelf: false

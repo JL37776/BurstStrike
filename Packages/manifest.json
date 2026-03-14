@@ -2,6 +2,7 @@
   "dependencies": {
     "com.unity.collab-proxy": "2.11.3",
     "com.unity.feature.development": "1.0.1",
+    "com.unity.shadergraph": "14.0.12",
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.timeline": "1.7.7",
     "com.unity.toolchain.win-x86_64-linux-x86_64": "2.0.11",

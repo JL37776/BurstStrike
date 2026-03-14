@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Game.Core;
 using Game.Scripts.Fixed;
 using UnityEngine;
 
@@ -17,13 +18,13 @@ namespace Game.Command
     public static class CommandFactory
     {
         /// <summary>
-        /// If true, CommandFactory will Debug.Log every command created/encoded/decoded.
+        /// If true, CommandFactory will log every command created/encoded/decoded.
         /// Useful for diagnosing operator->world command flow.
         /// </summary>
         public static bool EnableCommandLogging = false;
 
         /// <summary>
-        /// Optional: override log sink (defaults to Debug.Log).
+        /// Optional: override log sink (defaults to GameLog.Info).
         /// </summary>
         public static Action<string> CommandLogSink;
 
@@ -31,9 +32,9 @@ namespace Game.Command
         {
             if (!EnableCommandLogging) return;
             var sink = CommandLogSink;
-            var msg = $"[{nameof(CommandFactory)}] {prefix}: {Format(cmd)}";
+            var msg = $"{prefix}: {Format(cmd)}";
             if (sink != null) sink(msg);
-            else Debug.Log(msg);
+            else GameLog.Info(GameLog.Tag.Command, msg);
         }
 
         private static string Format(in Command cmd)

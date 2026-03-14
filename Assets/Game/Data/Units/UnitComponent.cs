@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core;
 using Game.Scripts.Fixed;
 using UnityEngine;
 using Game.Unit;
@@ -178,6 +179,9 @@ namespace Game.Serialization
             // Apply ability parameters from YAML (if provided)
             ApplyAbilityParams(data);
 
+            // Attach combat abilities from UnitData (ArmorInfo, Armament)
+            ApplyCombatData(data);
+
             // Debug: list attached ability types for verification
             var attached = new System.Text.StringBuilder();
             foreach (var ab in Actor.Abilities)
@@ -185,7 +189,7 @@ namespace Game.Serialization
                 if (attached.Length > 0) attached.Append(", ");
                 attached.Append(ab.GetType().Name);
             }
-            Debug.Log($"Unit '{Data.Id}' attached abilities: {attached}");
+            GameLog.Info(GameLog.Tag.Unit, $"Unit '{Data.Id}' attached abilities: {attached}");
 
             // Recursively create child UnitComponents if children exist
             if (data.Children != null)
@@ -283,6 +287,70 @@ namespace Game.Serialization
 
                     if (gp.AlertLayers != null)
                         guard.AlertLayerList = gp.AlertLayers;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Create ArmorInfo and Armament abilities from UnitData combat fields.
+        /// Called after normal abilities are initialized.
+        /// </summary>
+        private void ApplyCombatData(UnitData data)
+        {
+            if (data == null || Actor == null) return;
+
+            // ArmorType
+            if (!string.IsNullOrEmpty(data.ArmorType))
+            {
+                if (System.Enum.TryParse<Game.Combat.ArmorType>(data.ArmorType, true, out var armorType))
+                {
+                    var armorInfo = new ArmorInfo(armorType);
+                    armorInfo.BindActor(Actor);
+                    Actor.Abilities.Add(armorInfo);
+                    armorInfo.Init();
+                }
+                else
+                {
+                    GameLog.Warn(GameLog.Tag.Unit, $"Unknown ArmorType '{data.ArmorType}' on unit '{data.Id}'");
+                }
+            }
+
+            // Weapons → Armament abilities
+            if (data.Weapons != null && data.Weapons.Count > 0)
+            {
+                // Try to find CombatRegistry from the World/LogicWorld
+                Game.Combat.CombatRegistry combatReg = null;
+                var world = FindObjectOfType<Game.World.World>();
+                if (world != null)
+                {
+                    // Access via the public API chain. LogicWorld exposes CombatData.
+                    // During startup, LogicWorld may not exist yet. In that case,
+                    // Armament will lazily resolve the registry on first Tick.
+                }
+
+                for (int i = 0; i < data.Weapons.Count; i++)
+                {
+                    var weaponId = data.Weapons[i];
+                    if (string.IsNullOrEmpty(weaponId)) continue;
+
+                    // Create a placeholder Armament with a minimal WeaponDef.
+                    // The actual WeaponDef will be resolved from CombatRegistry at runtime
+                    // when the Armament ticks (lazy resolution via Actor.World -> LogicWorld.CombatData).
+                    Game.Combat.WeaponDef weaponDef = null;
+                    if (combatReg != null)
+                        combatReg.TryGetWeapon(weaponId, out weaponDef);
+
+                    if (weaponDef == null)
+                    {
+                        // Create a deferred-resolution Armament using a stub WeaponDef.
+                        // The Id is set so it can resolve later.
+                        weaponDef = new Game.Combat.WeaponDef { Id = weaponId };
+                    }
+
+                    var armament = new Armament(weaponDef);
+                    armament.BindActor(Actor);
+                    Actor.Abilities.Add(armament);
+                    armament.Init();
                 }
             }
         }

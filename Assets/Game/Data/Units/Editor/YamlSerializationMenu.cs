@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using System.IO;
+using Game.Core;
 using Game.Serialization;
 
 namespace Game.Serialization.Editor
@@ -15,13 +16,13 @@ namespace Game.Serialization.Editor
             var unit = UnitData.FromVector3("soldier1", 100, new Vector3(0, 1, 0));
             var path = Path.Combine(Application.persistentDataPath, sampleFileName);
             YamlHelper.SaveToFile(unit, path);
-            Debug.Log($"Saved YAML to {path}");
+            GameLog.Info(GameLog.Tag.Unit, $"Saved YAML to {path}");
 
             // Also write into Assets for easy inspection in the Editor
             var assetsPath = Path.Combine(Application.dataPath, "Game/Serialization/Samples", sampleFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(assetsPath));
             YamlHelper.SaveToFile(unit, assetsPath);
-            Debug.Log($"Saved YAML copy to {assetsPath}");
+            GameLog.Info(GameLog.Tag.Unit, $"Saved YAML copy to {assetsPath}");
             AssetDatabase.Refresh();
         }
 
@@ -41,7 +42,7 @@ namespace Game.Serialization.Editor
 
             if (unit == null)
             {
-                Debug.LogWarning("No YAML file found to load.");
+                GameLog.Warn(GameLog.Tag.Unit, "No YAML file found to load.");
                 return;
             }
 
@@ -55,7 +56,7 @@ namespace Game.Serialization.Editor
             var assetsPath = Path.Combine(Application.dataPath, "Game/Serialization/Samples", "tank_example.yaml");
             if (!File.Exists(assetsPath))
             {
-                Debug.LogWarning($"Sample YAML not found at {assetsPath}");
+                GameLog.Warn(GameLog.Tag.Unit, $"Sample YAML not found at {assetsPath}");
                 return;
             }
 
@@ -63,14 +64,14 @@ namespace Game.Serialization.Editor
             var root = YamlHelper.Deserialize(yaml);
             if (root == null)
             {
-                Debug.LogWarning("Failed to deserialize sample YAML.");
+                GameLog.Warn(GameLog.Tag.Unit, "Failed to deserialize sample YAML.");
                 return;
             }
 
             // Create in the active scene
             var go = UnitFactory.CreateUnit(root, faction: 0, playerId: 0, color: Game.Unit.PlayerPalette.GetColor(0));
             Selection.activeGameObject = go;
-            Debug.Log($"Spawned unit '{root.Id}' in scene.");
+            GameLog.Info(GameLog.Tag.Unit, $"Spawned unit '{root.Id}' in scene.");
         }
 
         // Recursive pretty-print for UnitData
@@ -78,7 +79,7 @@ namespace Game.Serialization.Editor
         {
             var indent = new string(' ', depth * 2);
             var abilities = unit.Abilities == null ? "[]" : "[" + string.Join(",", unit.Abilities) + "]";
-            Debug.Log($"{indent}Unit Id={unit.Id}, Model={unit.Model}, IsPrimary={unit.IsPrimary}, UseParentPosition={unit.UseParentPosition}, BindParentRotation={unit.BindParentRotation}, Health={unit.Health}, Position={unit.ToVector3()}, Abilities={abilities}");
+            GameLog.Info(GameLog.Tag.Unit, $"{indent}Unit Id={unit.Id}, Model={unit.Model}, IsPrimary={unit.IsPrimary}, UseParentPosition={unit.UseParentPosition}, BindParentRotation={unit.BindParentRotation}, Health={unit.Health}, Position={unit.ToVector3()}, Abilities={abilities}");
             if (unit.Children != null)
             {
                 foreach (var child in unit.Children)

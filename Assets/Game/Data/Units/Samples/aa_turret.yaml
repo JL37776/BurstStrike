@@ -1,0 +1,23 @@
+﻿# AA Defense — ground anti-air emplacement
+# References: RA2 Patriot Missile, SC:BW Missile Turret
+Id: "aa_turret"
+ArchetypeId: 40
+Health: 250
+Layer: Tanks
+AlertLayer: Ground
+IsPrimary: true
+Position: [0, 0, 0]
+
+ArmorType: "Structure"
+Weapons:
+  - "aa_missile"
+
+AbilityParams:
+  Guard:
+    AlertRange: 8
+    AlertLayers: [LowAir, HighAir]
+
+Abilities:
+  - "BaseUnit"
+  - "Guard"
+  - "Weapon"

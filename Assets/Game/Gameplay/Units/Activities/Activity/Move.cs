@@ -1,4 +1,5 @@
-﻿using Game.Scripts.Fixed;
+﻿using Game.Core;
+using Game.Scripts.Fixed;
 using Game.Unit.Ability.BaseAbilities;
 using Game.World.Logic;
 using UnityEngine;
@@ -71,7 +72,7 @@ namespace Game.Unit.Activity
         public bool IsFinished()
         {
             if (DebugMove && _isFinished)
-                Debug.Log("[Move] Arrived");
+                GameLog.Info(GameLog.Tag.Unit, "Move Arrived");
             return _isFinished;
         }
 
@@ -152,7 +153,7 @@ namespace Game.Unit.Activity
             {
                 _debugTick++;
                 if ((_debugTick % 10) == 1)
-                    Debug.Log($"[Move] pos={loc.Position} target={target} diff={diff} distSqr={distSqr} threshSqr={(thresh * thresh)}");
+                    GameLog.Info(GameLog.Tag.Unit, $"Move pos={loc.Position} target={target} diff={diff} distSqr={distSqr} threshSqr={(thresh * thresh)}");
             }
 
             if (distSqr <= thresh * thresh)
@@ -287,7 +288,7 @@ namespace Game.Unit.Activity
             if (DebugMove)
             {
                 if ((_debugTick % 10) == 1)
-                    Debug.Log($"[Move] dir={dir} speed={speed} delta={delta}");
+                    GameLog.Info(GameLog.Tag.Unit, $"Move dir={dir} speed={speed} delta={delta}");
             }
 
             if (deltaSqr >= distSqr)

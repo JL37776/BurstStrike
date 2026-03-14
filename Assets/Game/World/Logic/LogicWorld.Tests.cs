@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿﻿#if UNITY_EDITOR || ENABLE_TEST_DEBUG
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Game.World.Logic
@@ -44,3 +45,4 @@ namespace Game.World.Logic
         }
     }
 }
+#endif

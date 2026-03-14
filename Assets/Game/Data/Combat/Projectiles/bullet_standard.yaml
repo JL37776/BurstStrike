@@ -1,0 +1,6 @@
+﻿# Standard bullet — fast, straight line
+Id: bullet_standard
+Type: Bullet
+Speed: 400
+MaxLifetime: 120
+HitRadius: 128

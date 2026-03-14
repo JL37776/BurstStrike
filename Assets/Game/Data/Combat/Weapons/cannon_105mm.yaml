@@ -1,0 +1,19 @@
+﻿# Medium Tank main cannon — armor-piercing shell
+# Reference: RA2 Grizzly Battle Tank, SC:BW Siege Tank (normal mode)
+Id: cannon_105mm
+Range: 5120              # 5 cells
+MinRange: 0
+Cooldown: 45             # ~1.5 seconds @ 30 tick/s
+Warmup: 5
+Burst: 1
+BurstDelay: 0
+WarheadId: ap_shell
+ProjectileId: shell_medium
+ValidTargetLayers: Ground
+RequiresFacing: true
+VsLandModifier: 100
+VsNavalModifier: 80
+VsAirModifier: 0         # Cannot hit air
+MuzzleOffsetX: 0
+MuzzleOffsetY: 200
+MuzzleOffsetZ: 400

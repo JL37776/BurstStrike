@@ -1,4 +1,5 @@
 using System.IO;
+using Game.Core;
 using UnityEngine;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -49,7 +50,7 @@ namespace Game.Serialization
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Failed to deserialize UnitData YAML: {e.Message}");
+                GameLog.Error(GameLog.Tag.Unit, $"Failed to deserialize UnitData YAML: {e.Message}");
                 return null;
             }
 
@@ -58,7 +59,7 @@ namespace Game.Serialization
             if (!UnitDataValidator.TryValidate(data, out var errors))
             {
                 foreach (var err in errors)
-                    Debug.LogError("[UnitData] " + err);
+                    GameLog.Error(GameLog.Tag.Unit, err);
                 return null;
             }
 

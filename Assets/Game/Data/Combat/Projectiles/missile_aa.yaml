@@ -1,0 +1,8 @@
+﻿# AA tracking missile
+Id: missile_aa
+Type: Missile
+Speed: 250
+MaxLifetime: 200
+TrackingStrength: 80
+TurnRate: 256
+HitRadius: 160

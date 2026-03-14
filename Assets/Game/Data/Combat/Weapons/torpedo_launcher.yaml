@@ -1,0 +1,11 @@
+﻿# Torpedo launcher — submarine/destroyer anti-ship
+Id: torpedo_launcher
+Range: 7168              # 7 cells
+Cooldown: 90             # ~3 seconds
+WarheadId: torpedo_warhead
+ProjectileId: torpedo_mk1
+ValidTargetLayers: Ocean, Underwater
+RequiresFacing: true
+VsLandModifier: 0
+VsNavalModifier: 130     # Devastating vs ships
+VsAirModifier: 0

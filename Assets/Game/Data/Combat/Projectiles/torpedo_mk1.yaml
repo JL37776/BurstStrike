@@ -1,0 +1,8 @@
+﻿# Torpedo — slow, tracking, water-bound
+Id: torpedo_mk1
+Type: Torpedo
+Speed: 150
+MaxLifetime: 300
+TrackingStrength: 60
+TurnRate: 128
+HitRadius: 256

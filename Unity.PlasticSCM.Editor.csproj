@@ -100,8 +100,8 @@
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\Progress\DrawProgressForDialogs.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\Developer\IsResolved.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Welcome\MacOSConfigWorkaround.cs" />
-    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\VisualElementExtensions.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\UnityInternals\UnityEditor\SplitterState.cs" />
+    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\VisualElementExtensions.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\SummaryTextArea.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\Tree\CenteredContentPanel.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\GetPlasticShortcut.cs" />
@@ -238,8 +238,8 @@
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\GetRelativePath.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\AssetsUtils\Processor\UVCSAssetModificationProcessor.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\Headless\HeadlessProgressControls.cs" />
-    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\IIncomingChangesTab.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\PopupWindow\BranchesList\BranchesListModel.cs" />
+    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\IIncomingChangesTab.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Inspector\InspectorAssetSelection.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Developer\UpdateReport\UpdateReportLineListViewItem.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\Progress\DrawProgressForViews.cs" />
@@ -322,8 +322,8 @@
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\Headless\HeadlessMergeViewLauncher.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Hub\Operations\CreateWorkspace.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\PendingChanges\DrawCommentTextArea.cs" />
-    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\Gluon\IncomingChangesViewMenu.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\EditorProgressBar.cs" />
+    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\Gluon\IncomingChangesViewMenu.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\Developer\SerializableMergeTabState.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\ThreadWaiterRegistry.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\PendingChanges\PendingMergeLinks\MergeLinkListViewItem.cs" />
@@ -415,8 +415,8 @@
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\DrawActionHelpBox.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\Headless\HeadlessGluonUpdateReport.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\VCSBuiltInPlugin.cs" />
-    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\Headless\HeadlessUpdateReport.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Merge\Developer\DirectoryConflicts\ChangeDeleteMenu.cs" />
+    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UVCSToolbar\Headless\HeadlessUpdateReport.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\UnityInternals\UnityEditor\GenericMenu.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\GetOverlayRect.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\InputTextDialog.cs" />
@@ -440,9 +440,9 @@
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\UIElements\LoadingSpinner.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Topbar\Topbar.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\AssetMenu\HierarchyViewAssetMenu.cs" />
-    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\Errors\ErrorsListHeaderState.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\DialogWithCheckBox_Legacy.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\ApplyShelveWithConflictsQuestionerBuilder.cs" />
+    <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\UI\Errors\ErrorsListHeaderState.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\CloudDrive\ShareWorkspace\ShareWorkspaceDialog.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Gluon\UpdateReport\UpdateReportDialog.cs" />
     <Compile Include="Library\PackageCache\com.unity.collab-proxy@2.11.3\Editor\Views\Branch\BranchesTab_Operations.cs" />
@@ -1234,13 +1234,13 @@
       <Project>{7fa96f0c-5bef-9dc4-a5b5-c5f1aef8fcc3}</Project>
       <Name>UnityEngine.UI</Name>
     </ProjectReference>
-    <ProjectReference Include="UnityEngine.TestRunner.csproj">
-      <Project>{6df96ed0-6724-61bb-8512-fc15f8f27e68}</Project>
-      <Name>UnityEngine.TestRunner</Name>
-    </ProjectReference>
     <ProjectReference Include="UnityEditor.TestRunner.csproj">
       <Project>{c1761ba4-290b-4ffb-5c67-42c8b996cb29}</Project>
       <Name>UnityEditor.TestRunner</Name>
+    </ProjectReference>
+    <ProjectReference Include="UnityEngine.TestRunner.csproj">
+      <Project>{6df96ed0-6724-61bb-8512-fc15f8f27e68}</Project>
+      <Name>UnityEngine.TestRunner</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

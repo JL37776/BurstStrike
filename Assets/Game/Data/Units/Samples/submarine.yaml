@@ -1,0 +1,29 @@
+﻿# Submarine — underwater stealth unit
+# References: RA2 Typhoon Attack Sub, OpenRA submarine
+Id: "submarine"
+ArchetypeId: 31
+Health: 300
+Layer: Submarine
+AlertLayer: Underwater
+IsPrimary: true
+Position: [0, -1, 0]
+
+ArmorType: "Medium"
+Weapons:
+  - "torpedo_launcher"
+
+AbilityParams:
+  Movement:
+    MaxSpeed: 2
+    Acceleration: 1
+    TurnSpeedDeg: 20
+  Guard:
+    AlertRange: 10
+    AlertLayers: [Ocean, Underwater]
+
+Abilities:
+  - "BaseUnit"
+  - "Movement"
+  - "Navigation"
+  - "Guard"
+  - "Weapon"

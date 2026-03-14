@@ -28,6 +28,13 @@ namespace Game.Serialization
                     return new Game.Unit.Ability.BaseAbilities.Guard();
                 case "Weapon":
                     return new Game.Unit.Ability.BaseAbilities.Weapon();
+                case "Armament":
+                    // Armament requires a WeaponDef — created via CreateArmament() instead.
+                    // Return null here; caller should use dedicated factory method.
+                    return null;
+                case "ArmorInfo":
+                case "Armor":
+                    return new Game.Unit.Ability.ArmorInfo();
                 case "BaseWeapon":
                 case "BaseWeaponAbility":
                     return new Game.Unit.BaseWeapon();

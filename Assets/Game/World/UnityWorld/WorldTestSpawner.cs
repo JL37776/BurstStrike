@@ -1,7 +1,9 @@
-﻿﻿using System;
+﻿﻿#if UNITY_EDITOR || ENABLE_TEST_DEBUG
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Command;
+using Game.Core;
 using Game.Serialization;
 using Game.Scripts.Fixed;
 using Game.Unit;
@@ -134,7 +136,7 @@ namespace Game.World
         {
             if (_world == null)
             {
-                Debug.LogError("WorldTestSpawner requires a World component on the same GameObject.");
+                GameLog.Error(GameLog.Tag.Test, "WorldTestSpawner requires a World component on the same GameObject.");
                 return;
             }
 
@@ -150,7 +152,7 @@ namespace Game.World
             CacheWalkableCellsOrFail();
             if (_walkableCells.Count == 0)
             {
-                Debug.LogError("No walkable cells found on map yet. Try increasing delaySeconds so LogicWorld is ready.");
+                GameLog.Error(GameLog.Tag.Test, "No walkable cells found on map yet. Try increasing delaySeconds so LogicWorld is ready.");
                 yield break;
             }
 
@@ -187,7 +189,7 @@ namespace Game.World
                     }
                     if (!found)
                     {
-                        Debug.LogError("Failed to sample a walkable spawn cell.");
+                        GameLog.Error(GameLog.Tag.Test, "Failed to sample a walkable spawn cell.");
                         continue;
                     }
                 }
@@ -221,7 +223,7 @@ namespace Game.World
                 }
             }
 
-            Debug.Log($"Spawned and registered {_spawnedUnitIds.Count} units. spawnViaUnitFactory={spawnViaUnitFactory}");
+            GameLog.Info(GameLog.Tag.Test, $"Spawned and registered {_spawnedUnitIds.Count} units. spawnViaUnitFactory={spawnViaUnitFactory}");
         }
 
         private IEnumerator SendRandomMoveLoop()
@@ -371,3 +373,4 @@ namespace Game.World
         }
     }
 }
+#endif

@@ -1,0 +1,14 @@
+﻿# AA missile launcher — dedicated anti-air
+Id: aa_missile
+Range: 6144              # 6 cells
+MinRange: 1024           # 1 cell
+Cooldown: 60
+Burst: 2
+BurstDelay: 8
+WarheadId: aa_missile_warhead
+ProjectileId: missile_aa
+ValidTargetLayers: LowAir, HighAir
+RequiresFacing: false    # Turret mount, no body turn needed
+VsLandModifier: 30
+VsNavalModifier: 30
+VsAirModifier: 150       # Extremely effective vs air

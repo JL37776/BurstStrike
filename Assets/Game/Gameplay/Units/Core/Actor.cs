@@ -26,9 +26,9 @@ public class Actor
    /// </summary>
    public IReadOnlyList<Actor> Children => children;
 
-   private HashSet<IAbility> abilities = new HashSet<IAbility>();
+   private List<IAbility> abilities = new List<IAbility>(8);
 
-   public HashSet<IAbility> Abilities
+   public List<IAbility> Abilities
    {
       get { return abilities; }
    }
@@ -85,9 +85,10 @@ public class Actor
 
       while (Activities != null && Activities.Count > 0)
       {
-         Activities.Peek().Tick();
+         var top = Activities.Peek();
+         top.Tick();
 
-         if (!Activities.Peek().IsFinished())
+         if (!top.IsFinished())
             break;
 
          Activities.Pop();

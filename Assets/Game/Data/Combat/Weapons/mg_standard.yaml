@@ -1,0 +1,13 @@
+﻿# Coaxial machine gun — anti-infantry
+Id: mg_standard
+Range: 4096              # 4 cells
+Cooldown: 8
+Burst: 3
+BurstDelay: 2
+WarheadId: kinetic_standard
+ProjectileId: bullet_standard
+ValidTargetLayers: Ground, LowAir
+RequiresFacing: true
+VsLandModifier: 100
+VsNavalModifier: 50
+VsAirModifier: 60

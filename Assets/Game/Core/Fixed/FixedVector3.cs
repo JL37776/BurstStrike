@@ -10,7 +10,7 @@ namespace Game.Scripts.Fixed
 
         public FixedVector3(Fixed x, Fixed y, Fixed z) { this.x = x; this.y = y; this.z = z; }
 
-        public static FixedVector3 Zero => new FixedVector3(Fixed.Zero, Fixed.Zero, Fixed.Zero);
+        public static readonly FixedVector3 Zero = new FixedVector3(Fixed.Zero, Fixed.Zero, Fixed.Zero);
 
         public static FixedVector3 operator +(FixedVector3 a, FixedVector3 b) => new FixedVector3(a.x + b.x, a.y + b.y, a.z + b.z);
         public static FixedVector3 operator -(FixedVector3 a, FixedVector3 b) => new FixedVector3(a.x - b.x, a.y - b.y, a.z - b.z);

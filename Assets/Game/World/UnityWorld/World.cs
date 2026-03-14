@@ -1,14 +1,14 @@
-﻿﻿using System;
+﻿﻿﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using UnityEngine;
+using Game.Core;
 using Game.Scripts.Fixed;
-using Game.Map;
-using Game.Pathing.Debug;
 using Game.Unit;
 using Game.World.Logic;
+using BurstStrike.Net.Session;
 
 namespace Game.World
 {
@@ -19,7 +19,7 @@ namespace Game.World
     /// Threading model: World runs on Unity main thread; LogicWorld runs on a background logic thread. 线程模型：World 在 Unity 主线程；LogicWorld 在后台逻辑线程。
     /// Data crossing threads must be marshalled via queues/snapshots. 跨线程数据必须通过队列/快照封送。
     /// </remarks>
-    public sealed class World : MonoBehaviour
+    public sealed partial class World : MonoBehaviour
     {
         public enum DebugPathMode
         {
@@ -34,27 +34,7 @@ namespace Game.World
         // Keep this field for compatibility with existing scenes, but it will be overridden when YAML loads.
         [NonSerialized] private WorldConfigData _worldConfig;
 
-        [Header("Debug")] [Tooltip("If true, log snapshot data periodically (diagnostics). 是否周期性打印快照信息（用于诊断单位状态）。")]
-        public bool logSnapshots = true;
-
-        [Tooltip("Snapshot log interval in seconds. 快照日志间隔（秒）。")]
-        public float snapshotLogIntervalSeconds = 3f;
-
-        [Tooltip("How many units to print in snapshot log (head). 日志中最多打印多少个单位（取头部）。")]
-        public int snapshotPrintHeadCount = 5;
-
-        [Tooltip(
-            "If units exceed head count, also print the last unit (tail) for diagnostics. 如果单位数超过 head count，也打印最后一个单位（帮助定位尾部异常）。")]
-        public bool snapshotPrintTail = true;
-
-        [Tooltip(
-            "If true, log RenderSnapshot unit id stats (helps diagnose flicker/id reuse issues). 是否周期性打印 RenderSnapshot 的单位 id 统计（帮助定位闪烁/id 复用问题）。")]
-        public bool logRenderIds = false;
-
-        [Tooltip("Render id log interval in seconds. Render id 统计日志间隔（秒）。")]
-        public float renderIdLogIntervalSeconds = 2f;
-
-        private float _nextRenderIdLogTime;
+        // ── Debug fields are in World.Debug.cs (partial class) ──
 
         [Header("Rendering")]
         [Tooltip("Enable RenderUnit proxies driven by logic snapshots. 启用渲染代理（RenderUnit），由逻辑快照驱动。")]
@@ -116,94 +96,44 @@ namespace Game.World
         [Tooltip("How often (seconds) to run proxy cleanup. 代理清理的频率（秒）。")]
         public float renderProxyCleanupIntervalSeconds = 0.25f;
 
-        [Header("Debug Map Render")]
-        [Tooltip(
-            "If true, render a debug Tank map (example NxN) before starting LogicWorld. 如果为真，渲染调试用的 Tank 地图（示例 NxN）。")]
-        public bool renderDebugTankMap = true;
+        // ── Debug map/walkability/pathing/partition/inspector fields are in World.Debug.cs ──
 
-        [Tooltip("Example map size in cells (NxN). 示例地图的大小（单元格数 NxN）。")]
-        public int debugTankMapSize = 5;
+        // ═══════════════════════════════════════════════════════════════
+        //  Game Session (Local / LAN / Network)
+        // ═══════════════════════════════════════════════════════════════
 
-        [Tooltip("Cell size in Unity units for debug tank map. 调试坦克地图的单元格大小（Unity 单位）。")]
-        public float debugTankMapCellSize = 0.5f;
+        [Header("Game Mode")]
+        [Tooltip("Game mode: Local (single player), LanHost (host a LAN game), LanGuest (join a LAN game), Network (remote server).")]
+        public GameMode gameMode = GameMode.Local;
 
-        [Tooltip("Cube height in Unity units for debug tank map. 调试坦克地图的单元格高度（Unity 单位）。")]
-        public float debugTankMapCellHeight = 0.5f;
+        [Header("Network / LAN Settings")]
+        [Tooltip("Server host IP (for Network and LAN-Guest modes).")]
+        public string serverHost = "127.0.0.1";
 
-        [Tooltip("Obstacle probability for example map Tanks layer. 示例地图 Tanks 图层的障碍物概率。")] [Range(0f, 1f)]
-        public float debugTankObstacleProbability = 0.10f;
+        [Tooltip("Server port.")]
+        public int serverPort = 9050;
 
-        [Tooltip("Seed for example map. Same seed => same layout. 示例地图的种子。相同种子 => 相同布局。")]
-        public int debugTankMapSeed = 12345;
+        [Tooltip("Max players per room (LAN Host only).")]
+        public int maxPlayersPerRoom = 2;
 
-        [Tooltip(
-            "Parent transform for generated debug tank map cubes. If null, uses this World transform. 生成的调试坦克地图立方体的父节点。如果为空，使用 World 的 Transform。")]
-        public Transform debugTankMapRoot;
+        [Tooltip("Countdown ticks after room full (LAN Host only). 90 ticks = 3 seconds at 30 tick/s.")]
+        public int countdownTicks = 90;
 
-        [Tooltip(
-            "If true, log which debug map parameters were used to render/build the example map. 如果为真，记录用于渲染/构建示例地图的调试地图参数。")]
-        public bool logDebugTankMapParams = false;
+        [Tooltip("Auth token from web server (Network mode only).")]
+        public string authToken = "";
 
-        [Header("Debug Walkability")]
-        [Tooltip(
-            "If true, draw a main-thread overlay of non-walkable cells for Tanks layer (red cubes). 如果为真，主线程覆盖显示 Tanks 图层的不可行走单元格（红色立方体）。")]
-        public bool debugRenderTanksBlocked = false;
+        [Tooltip("Room ID for auto-match (empty = auto). 房间ID（空=自动匹配）。")]
+        public string roomId = "";
 
-        [Header("Debug Pathing")]
-        [Tooltip(
-            "If enabled, pathfinding mode is forced by Debug Path Mode below. If disabled, PathService auto-selects based on unit count threshold.")]
-        public bool debugForcePathMode = false;
+        /// <summary>The active game session (null before Start, set during StartLogicWorld).</summary>
+        private IGameSession _session;
 
-        [Tooltip("Which pathfinding mode to force when Debug Force Path Mode is enabled.")]
-        public DebugPathMode debugPathMode = DebugPathMode.AStar;
-
-        [Tooltip(
-            "If Debug Force Path Mode is disabled, commands with unit count <= this threshold use A*; otherwise use FlowField.")]
-        [Min(1)]
-        public int pathingAStarUnitCountThreshold = 10;
-
-        [Header("Enemy Search (Partition Index)")]
-        [Tooltip("EnemySearchService partition cell size in MAP CELLS (not world units). Min=5, default=5. Smaller => more partitions, tighter searches, slightly higher update overhead.")]
-        [Min(5)]
-        public int enemySearchPartitionCellSize = 5;
-
-        [Header("Debug Enemy Search")]
-        [Tooltip("If true, sync partition info into RenderUnit inspector fields and optionally log the updates.")]
-        public bool debugSyncRenderUnitPartition = true;
-
-        [Tooltip("If true, log partition sync for the first few units each frame (noisy).")]
-        public bool debugLogRenderUnitPartition = false;
-
-        [Header("Debug RenderUnit (Inspector Sync)")]
-        [Tooltip("Sync top activity name into RenderUnit inspector each frame (allocations).")]
-        public bool debugSyncTopActivity = false;
-
-        [Tooltip("Sync full activity stack into RenderUnit inspector each frame (allocations).")]
-        public bool debugSyncActivities = false;
-
-        [Tooltip("Sync ability list into RenderUnit inspector each frame (allocations).")]
-        public bool debugSyncAbilities = false;
-
-        private GameObject _tanksBlockedRoot;
+        /// <summary>Public accessor for the current session.</summary>
+        public IGameSession Session => _session;
 
         private readonly ConcurrentQueue<ILogicInput> _toLogic = new ConcurrentQueue<ILogicInput>();
         private readonly ConcurrentQueue<ILogicOutput> _fromLogic = new ConcurrentQueue<ILogicOutput>();
 
-        // Path debug (queued from logic thread, consumed on main thread)
-        private readonly ConcurrentQueue<PathDebugPayload> _pathDebugQueue = new ConcurrentQueue<PathDebugPayload>();
-        private PathDebugCubes _pathDebugCubes;
-
-        private readonly struct PathDebugPayload
-        {
-            public readonly int[] X;
-            public readonly int[] Y;
-
-            public PathDebugPayload(int[] x, int[] y)
-            {
-                X = x;
-                Y = y;
-            }
-        }
 
         private Thread _logicThread;
         private CancellationTokenSource _cts;
@@ -255,15 +185,10 @@ namespace Game.World
             ApplySettingsProviders(ref _resolvedSettings);
             _resolvedSettings.ApplyTo(this);
 
-            // Cache path debug visualizer on main thread if present in scene.
-            _pathDebugCubes = GetComponentInChildren<PathDebugCubes>();
-            if (_pathDebugCubes == null)
-                _pathDebugCubes = UnityEngine.Object.FindFirstObjectByType<PathDebugCubes>();
+            // Debug init (path debug cubes, debug path queue, debug flags).
+            DebugAwakeInit();
 
-            // Allow logic thread to enqueue debug paths without holding a World instance.
-            WorldDebugPath.Queue = _pathDebugQueue;
-
-            // Expose debug settings + path debug queue to extracted command adapter.
+            // Expose debug settings to extracted command adapter.
             WorldDebugAccess.SetWorld(this);
 
             // Default debug flags (can be changed live in inspector).
@@ -271,7 +196,6 @@ namespace Game.World
                 debugSyncTopActivity,
                 debugSyncActivities,
                 debugSyncAbilities));
-            // WorldDebugAccess.SetPathDebugQueue(_pathDebugQueue);
 
             // Expose this World instance to logic-thread command execution (debug settings only).
             WorldRefHolder.Ref = _selfRef;
@@ -321,143 +245,6 @@ namespace Game.World
                 providers[i].Mutate(ref settings);
         }
 
-        private void RenderTanksBlockedOverlay()
-        {
-            if (_logicWorld == null || _logicWorld.Map == null)
-            {
-                Debug.LogWarning("[Debug_TanksBlocked] LogicWorld or Map not ready; cannot render blocked overlay.");
-                return;
-            }
-
-            if (_tanksBlockedRoot != null) Destroy(_tanksBlockedRoot);
-            _tanksBlockedRoot = new GameObject("Debug_TanksBlocked");
-            _tanksBlockedRoot.transform.SetParent(transform, false);
-
-            var map = _logicWorld.Map;
-            var grid = map.Grid;
-
-            var mat = new Material(Shader.Find("Standard")) { color = Color.red };
-
-            int blockedCount = 0;
-            for (int y = 0; y < map.Height; y++)
-            {
-                for (int x = 0; x < map.Width; x++)
-                {
-                    var cell = new Game.Grid.GridPosition(x, y);
-                    // blocked for tanks if NOT walkable for Tanks
-                    if (map.IsWalkable(cell, Game.Map.MapLayer.Tanks))
-                        continue;
-
-                    blockedCount++;
-                    var c2 = grid.GetCellCenterWorld(cell);
-                    var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    go.name = $"Blocked_{x}_{y}";
-                    go.transform.SetParent(_tanksBlockedRoot.transform, worldPositionStays: true);
-
-                    // put it above the map: cellHeight/2 (cube center) + 0.5
-                    float yPos = (debugTankMapCellHeight * 0.5f) + 0.5f;
-                    go.transform.position = new Vector3(c2.x.ToFloat(), yPos, c2.y.ToFloat());
-                    go.transform.localScale = Vector3.one * 0.35f;
-
-                    var r = go.GetComponent<Renderer>();
-                    if (r != null) r.sharedMaterial = mat;
-                    var col = go.GetComponent<Collider>();
-                    if (col != null) Destroy(col);
-                }
-            }
-
-            Debug.Log($"[Debug_TanksBlocked] map={map.Width}x{map.Height} blocked(Tanks)={blockedCount}");
-
-            // If there are no blocked cells (or something's wrong), spawn a single visible marker so we know this ran.
-            if (blockedCount == 0)
-            {
-                var marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                marker.name = "BlockedOverlay_Marker";
-                marker.transform.SetParent(_tanksBlockedRoot.transform, worldPositionStays: false);
-                marker.transform.localPosition = new Vector3(0f, 2f, 0f);
-                marker.transform.localScale = Vector3.one * 0.6f;
-                var mr = marker.GetComponent<Renderer>();
-                if (mr != null)
-                {
-                    var m = new Material(Shader.Find("Standard")) { color = Color.yellow };
-                    mr.sharedMaterial = m;
-                }
-
-                var mc = marker.GetComponent<Collider>();
-                if (mc != null) Destroy(mc);
-            }
-        }
-
-        private void RenderDebugTankMap()
-        {
-            // If a renderer already exists, ensure it matches current World settings.
-            var existing = GetComponentInChildren<Game.Map.TankMapRenderer>();
-            var size = Mathf.Max(1, debugTankMapSize);
-
-            // Build map data from World settings.
-            var map = Game.Map.MapLoader.CreateExampleMap(size, size, debugTankObstacleProbability, debugTankMapSeed);
-
-            // If we already have a renderer, just (re)configure and render.
-            if (existing != null)
-            {
-                existing.Configure(debugTankMapCellSize, debugTankMapCellHeight, Vector3.zero);
-                existing.Render(map);
-                return;
-            }
-
-            if (logDebugTankMapParams)
-            {
-                int blocked = 0;
-                for (int y = 0; y < map.height; y++)
-                for (int x = 0; x < map.width; x++)
-                    if ((map.Layers[y, x] & Game.Map.MapLayer.Tanks) != 0)
-                        blocked++;
-
-                Debug.Log(
-                    $"[World] RenderDebugTankMap size={size} seed={debugTankMapSeed} p={debugTankObstacleProbability:F3} blocked={blocked}");
-            }
-
-            var root = debugTankMapRoot != null ? debugTankMapRoot : transform;
-            var go = new GameObject("TankMapRenderer");
-            go.transform.SetParent(root, false);
-
-            var r = go.AddComponent<Game.Map.TankMapRenderer>();
-
-            // IMPORTANT: TankMapRenderer has its own Start() that can auto-render an inspector-defined example map.
-            // World owns debug rendering, so disable that behavior to avoid mismatched sizes.
-            r.enabled = false;
-
-            r.Configure(debugTankMapCellSize, debugTankMapCellHeight, Vector3.zero);
-            r.Render(map);
-        }
-
-        private Game.Map.IMap BuildLogicMap()
-        {
-            // For now we reuse the same example map that the debug renderer uses.
-            // This ensures the logic occupancy/index sees the same obstacles.
-            var size = Mathf.Max(1, debugTankMapSize);
-            var data = MapLoader.CreateExampleMap(size, size, debugTankObstacleProbability, debugTankMapSeed);
-
-            if (logDebugTankMapParams)
-            {
-                int blocked = 0;
-                for (int y = 0; y < data.height; y++)
-                for (int x = 0; x < data.width; x++)
-                    if ((data.Layers[y, x] & Game.Map.MapLayer.Tanks) != 0)
-                        blocked++;
-
-                Debug.Log(
-                    $"[World] BuildLogicMap size={size} seed={debugTankMapSeed} p={debugTankObstacleProbability:F3} blocked={blocked}");
-            }
-
-            // Map.cs uses FixedVector2 for origin/cell size.
-            // World origin is (0,0). Cell size is square.
-            var origin = FixedVector2.Zero;
-            var cellSize = new FixedVector2(Fixed.FromFloat(debugTankMapCellSize),
-                Fixed.FromFloat(debugTankMapCellSize));
-
-            return MapWithHeight.FromMapData(data, origin, cellSize);
-        }
 
         private void OnDestroy()
         {
@@ -466,33 +253,14 @@ namespace Game.World
 
             // Clear debug accessors
             WorldDebugAccess.SetWorld(null);
-            // WorldDebugAccess.SetPathDebugQueue(null);
             StopLogicWorld();
 
-            // Clear static queue if this instance owns it.
-            if (WorldDebugPath.Queue == _pathDebugQueue) WorldDebugPath.Queue = null;
+            // Debug cleanup is in World.Debug.cs
+            DebugOnDestroy();
         }
 
-        // Add a small static helper inside World to allow logic thread to enqueue debug paths without a World instance.
-        private static class WorldDebugPath
-        {
-            public static ConcurrentQueue<PathDebugPayload> Queue;
-
-            public static void Enqueue(IReadOnlyList<Game.Grid.GridPosition> cells)
-            {
-                var q = Queue;
-                if (q == null || cells == null || cells.Count == 0) return;
-                var xs = new int[cells.Count];
-                var ys = new int[cells.Count];
-                for (int i = 0; i < cells.Count; i++)
-                {
-                    xs[i] = cells[i].X;
-                    ys[i] = cells[i].Y;
-                }
-
-                q.Enqueue(new PathDebugPayload(xs, ys));
-            }
-        }
+        // ── RenderTanksBlockedOverlay, RenderDebugTankMap, BuildLogicMap, WorldDebugPath
+        //    are in World.Debug.cs (partial class) ──
 
         public void StartLogicWorld()
         {
@@ -507,7 +275,7 @@ namespace Game.World
             if (cfgErrors != null && cfgErrors.Count > 0)
             {
                 for (int i = 0; i < cfgErrors.Count; i++)
-                    Debug.LogWarning("[WorldConfig] " + cfgErrors[i]);
+                    GameLog.Warn(GameLog.Tag.Config, cfgErrors[i]);
             }
 
             // Build logic map (layers + heights) and pass it into LogicWorld.
@@ -520,12 +288,12 @@ namespace Game.World
             var source = new DirectoryYamlArchetypeSource(archetypeRootDir, recursive: true);
             var dict = source.LoadAll(out var errors);
 
-            Debug.Log($"[ArchetypeLoad] loaded={dict?.Count ?? 0} from '{archetypeRootDir}'");
+            GameLog.Info(GameLog.Tag.Archetype, $"loaded={dict?.Count ?? 0} from '{archetypeRootDir}'");
             if (errors != null && errors.Count > 0)
             {
                 // Dev-time behavior: log and continue with whatever loaded.
                 for (int i = 0; i < errors.Count; i++)
-                    Debug.LogError("[ArchetypeLoad] " + errors[i]);
+                    GameLog.Error(GameLog.Tag.Archetype, errors[i]);
             }
 
             var archetypes = new ArchetypeRegistry(dict);
@@ -547,6 +315,23 @@ namespace Game.World
 
             _logicWorld = new LogicWorld(tickRate, _toLogic, _fromLogic, logicMap, enemySearchPartitionCellSize, archetypes, injectedAbilityRates, injectedActivityRates);
 
+            // Combat data: load weapons/warheads/projectiles from YAML (main thread).
+            var combatDataRoot = Path.Combine(Application.dataPath, "Game/Data/Combat");
+            Game.Combat.CombatRegistry combatRegistry;
+            if (System.IO.Directory.Exists(combatDataRoot))
+            {
+                combatRegistry = Game.Serialization.CombatDataLoader.LoadFromDirectory(combatDataRoot, out var combatErrors);
+                if (combatErrors != null && combatErrors.Count > 0)
+                    for (int i = 0; i < combatErrors.Count; i++)
+                        GameLog.Warn(GameLog.Tag.Config, combatErrors[i]);
+            }
+            else
+            {
+                GameLog.Info(GameLog.Tag.Config, $"No combat data directory at '{combatDataRoot}', using defaults.");
+                combatRegistry = Game.Serialization.CombatDataLoader.BuildDefaults();
+            }
+            _logicWorld.SetCombatRegistry(combatRegistry);
+
             _logicThread = new Thread(() =>
             {
                 try
@@ -564,10 +349,57 @@ namespace Game.World
             };
 
             _logicThread.Start();
+
+            // ── Create and start the game session ──
+            _session?.Dispose();
+            _session = GameSessionFactory.Create(new SessionConfig
+            {
+                Mode = gameMode,
+                TickRate = tickRate,
+                Host = serverHost,
+                Port = serverPort,
+                MaxPlayers = maxPlayersPerRoom,
+                CountdownTicks = countdownTicks,
+                AuthToken = authToken,
+                RoomId = string.IsNullOrEmpty(roomId) ? null : roomId,
+            });
+
+            // Wire session callbacks → command injection into LogicWorld
+            _session.OnCommandReady = (bytes, tick, seq) =>
+            {
+                if (bytes == null || bytes.Length == 0) return;
+                if (!Game.Command.CommandFactory.TryDecode(bytes, out var cmd)) return;
+                cmd.Tick = tick;
+                cmd.Sequence = seq;
+                EnqueueToLogic(new EnqueueCommandInput(cmd));
+            };
+
+            _session.OnTickReady = tick =>
+            {
+                // In networked modes, this signals that tick N's commands are complete.
+                // The LogicWorld's self-driven tick loop handles pacing independently.
+            };
+
+            _session.OnStateChanged = state =>
+            {
+                GameLog.Info(GameLog.Tag.Config, $"[Session] State → {state} (mode={_session.ModeName})");
+            };
+
+            _session.OnLog = msg =>
+            {
+                GameLog.Info(GameLog.Tag.Config, msg);
+            };
+
+            _session.Start();
+            GameLog.Info(GameLog.Tag.Config, $"[Session] Started: mode={_session.ModeName}");
         }
 
         public void StopLogicWorld()
         {
+            // Stop session first (may have embedded server threads)
+            _session?.Dispose();
+            _session = null;
+
             if (_logicThread == null) return;
 
             try
@@ -598,25 +430,10 @@ namespace Game.World
                 debugSyncAbilities));
 
             // Apply queued path debug (main thread)
-            if (_pathDebugCubes != null && _logicWorld != null && _logicWorld.Map != null)
-            {
-                // drain - keep only last payload this frame
-                PathDebugPayload last = default;
-                bool has = false;
-                while (_pathDebugQueue.TryDequeue(out var p))
-                {
-                    last = p;
-                    has = true;
-                }
+            DebugDrainPathQueue();
 
-                if (has && last.X != null && last.Y != null && last.X.Length == last.Y.Length)
-                {
-                    var list = new List<Game.Grid.GridPosition>(last.X.Length);
-                    for (int i = 0; i < last.X.Length; i++)
-                        list.Add(new Game.Grid.GridPosition(last.X[i], last.Y[i]));
-                    _pathDebugCubes.ShowPath(_logicWorld.Map, list);
-                }
-            }
+            // Poll game session (drains network messages, processes ticks)
+            _session?.Update();
 
             // Drain outputs on main thread
             while (_fromLogic.TryDequeue(out var msg))
@@ -636,107 +453,8 @@ namespace Game.World
                     CleanupRenderProxies();
             }
 
-            // Debug: update RenderUnit inspector partition fields
-            // Important: do this AFTER ApplyRenderSnapshot/ApplyInterpolatedRender so RenderUnits exist.
-            if (debugSyncRenderUnitPartition && _latestRenderSnapshot.HasValue)
-                DebugUpdateRenderUnitPartitions(_latestRenderSnapshot.Value);
-
-            // Main-thread debug: print child count for first few units so we can verify whether
-            // the render snapshot actually carries children info.
-            if (debugSyncAbilities && _latestRenderSnapshot.HasValue)
-            {
-                var rs = _latestRenderSnapshot.Value;
-                var units = rs.Units;
-                if (units != null)
-                {
-                    var limit = Mathf.Min(3, units.Length);
-                    for (int di = 0; di < limit; di++)
-                    {
-                        var u = units[di];
-                        // Print both snapshot and current RenderUnit values to distinguish sync vs. apply issues.
-                        int snapChild = u.ChildCount ?? -1;
-                        string arch = u.RootArchetypeId ?? "<null>";
-                        int renderChild = -1;
-                        if (_renderUnitsById.TryGetValue(u.Id, out var ru) && ru != null)
-                            renderChild = ru.ChildCount;
-
-                        Debug.Log($"[ChildDebug] tick={rs.Tick} unitId={u.Id} archetype={arch} snapChildCount={snapChild} renderChildCount={renderChild}");
-                    }
-                }
-            }
-
-            if (logSnapshots && snapshotLogIntervalSeconds > 0f && Time.unscaledTime >= _nextSnapshotLogTime)
-            {
-                _nextSnapshotLogTime = Time.unscaledTime + snapshotLogIntervalSeconds;
-                if (_latestSnapshot.HasValue)
-                {
-                    var s = _latestSnapshot.Value;
-                    var units = s.Units;
-                    if (units == null)
-                    {
-                        Debug.Log($"[Snap] t={s.Tick} u=0");
-                        return;
-                    }
-
-                    var count = units.Length;
-
-                    if (count == 0)
-                    {
-                        Debug.Log($"[Snap] t={s.Tick} u=0");
-                        return;
-                    }
-
-                    // Print a compact sample list: first N + (optional) last one.
-                    // Example: [Snap] t=64 u=30 | 0:hp100@(0,0,0) 1:hp100@(1,0,0) ... 29:hp100@(29,0,0)
-                    var head = snapshotPrintHeadCount <= 0 ? 0 : snapshotPrintHeadCount;
-                    var sb = new System.Text.StringBuilder(128);
-                    sb.Append("[Snap] t=").Append(s.Tick).Append(" u=").Append(count).Append(" | ");
-
-                    int shown = 0;
-                    for (int i = 0; i < count && i < head; i++)
-                    {
-                        if (shown++ > 0) sb.Append(' ');
-                        var u = units[i];
-                        if (u.Name == null && !u.Hp.HasValue && !u.Position.HasValue)
-                            sb.Append(i).Append(":-");
-                        else
-                            AppendUnitShort(sb, u);
-                    }
-
-                    if (snapshotPrintTail && count > head)
-                    {
-                        sb.Append(" ... ");
-                        var u = units[count - 1];
-                        if (u.Name == null && !u.Hp.HasValue && !u.Position.HasValue)
-                            sb.Append(count - 1).Append(":-");
-                        else
-                            AppendUnitShort(sb, u);
-                    }
-
-                    Debug.Log(sb.ToString());
-                }
-            }
-
-            if (logRenderIds && renderIdLogIntervalSeconds > 0f && Time.unscaledTime >= _nextRenderIdLogTime)
-            {
-                _nextRenderIdLogTime = Time.unscaledTime + renderIdLogIntervalSeconds;
-                if (_latestRenderSnapshot.HasValue)
-                {
-                    var rs = _latestRenderSnapshot.Value;
-                    var units = rs.Units;
-                    if (units != null)
-                    {
-                        var set = new HashSet<int>();
-                        int dup = 0;
-                        for (int i = 0; i < units.Length; i++)
-                        {
-                            if (!set.Add(units[i].Id)) dup++;
-                        }
-
-                        Debug.Log($"[RenderIds] tick={rs.Tick} units={units.Length} uniq={set.Count} dup={dup}");
-                    }
-                }
-            }
+            // All debug-only Update work (snapshot logging, RenderIds, ChildDebug, PartitionSync).
+            DebugUpdate();
         }
 
         private void HandleLogicOutput(ILogicOutput msg)
@@ -1096,27 +814,6 @@ namespace Game.World
             return ru;
         }
 
-        private static void AppendUnitShort(System.Text.StringBuilder sb, in LogicUnitSnapshot u)
-        {
-            if (sb == null) return;
-            sb.Append(u.Index).Append(':');
-
-            if (!string.IsNullOrEmpty(u.Name))
-                sb.Append(u.Name);
-
-            if (u.Hp.HasValue)
-                sb.Append("hp").Append(u.Hp.Value);
-
-            if (u.Position.HasValue)
-            {
-                var p = u.Position.Value;
-                sb.Append("@(")
-                    .Append(p.x.ToString()).Append(',')
-                    .Append(p.y.ToString()).Append(',')
-                    .Append(p.z.ToString())
-                    .Append(')');
-            }
-        }
 
         /// <summary>
         /// Thread-safe: enqueue a message to be applied on the logic thread. 线程安全：将输入消息入队，逻辑线程在 Tick 中处理。
@@ -1155,6 +852,37 @@ namespace Game.World
             return true;
         }
 
+        /// <summary>
+        /// Submit encoded commands through the active game session.
+        /// In Local mode: injected directly into LogicWorld.
+        /// In network modes: sent to server, which echoes merged commands back.
+        /// This is the primary entry point for all command submission in networked play.
+        /// </summary>
+        public void SubmitCommandsThroughSession(int tick, byte[][] encodedCommands)
+        {
+            if (_session == null || _session.State != SessionState.Running)
+            {
+                // Fallback: inject directly (legacy behavior for offline / pre-session state)
+                if (encodedCommands != null)
+                {
+                    for (int i = 0; i < encodedCommands.Length; i++)
+                        ReceiveEncodedCommand(encodedCommands[i]);
+                }
+                return;
+            }
+            _session.SubmitCommands(tick, encodedCommands);
+        }
+
+        /// <summary>
+        /// Submit a single encoded command through the active game session.
+        /// Convenience overload for single-command submission.
+        /// </summary>
+        public void SubmitCommandThroughSession(int tick, byte[] encodedCommand)
+        {
+            if (encodedCommand == null || encodedCommand.Length == 0) return;
+            SubmitCommandsThroughSession(tick, new[] { encodedCommand });
+        }
+
         private readonly struct EnqueueCommandInput : ILogicInput
         {
             private readonly Game.Command.Command _cmd;
@@ -1177,34 +905,5 @@ namespace Game.World
             }
         }
 
-        private void DebugUpdateRenderUnitPartitions(in RenderSnapshot rs)
-        {
-            if (_logicWorld == null || _logicWorld.Map == null) return;
-
-            var es = _logicWorld.EnemySearch as EnemySearchService;
-            if (es == null) return;
-
-            var units = rs.Units;
-            if (units == null || units.Length == 0) return;
-
-            for (int i = 0; i < units.Length; i++)
-            {
-                var u = units[i];
-                if (!_renderUnitsById.TryGetValue(u.Id, out var ru) || ru == null) continue;
-
-                if (es.TryGetPartitionForWorldPos(u.Position, out var px, out var py))
-                {
-                    ru.ApplyEnemyPartition(px, py, es.PartitionCellSize);
-
-                    if (debugLogRenderUnitPartition && i < 3)
-                        Debug.Log($"[PartitionSync] unitId={u.Id} pos={u.Position} partition=({px},{py}) cellSize={es.PartitionCellSize}");
-                }
-                else
-                {
-                    if (debugLogRenderUnitPartition && i < 1)
-                        Debug.LogWarning($"[PartitionSync] failed: unitId={u.Id} pos={u.Position} (index/map not ready?)");
-                }
-            }
-        }
     }
 }

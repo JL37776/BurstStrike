@@ -1,0 +1,31 @@
+﻿# Destroyer — surface naval combat vessel
+# References: RA2 Destroyer, OpenRA naval units
+Id: "destroyer"
+ArchetypeId: 30
+Health: 600
+Layer: Naval
+AlertLayer: Ocean
+IsPrimary: true
+Position: [0, 0, 0]
+
+ArmorType: "Heavy"
+Weapons:
+  - "naval_cannon"
+  - "torpedo_launcher"
+  - "aa_missile"
+
+AbilityParams:
+  Movement:
+    MaxSpeed: 2
+    Acceleration: 1
+    TurnSpeedDeg: 30
+  Guard:
+    AlertRange: 12
+    AlertLayers: [Ocean, Underwater, Ground, LowAir, HighAir]
+
+Abilities:
+  - "BaseUnit"
+  - "Movement"
+  - "Navigation"
+  - "Guard"
+  - "Weapon"

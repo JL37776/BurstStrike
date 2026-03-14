@@ -94,6 +94,21 @@ namespace Game.Serialization
             public int? Range;
         }
 
+        // ── Combat system data (loaded from YAML) ────────────────────────
+
+        /// <summary>
+        /// Armor type string (maps to Game.Combat.ArmorType enum).
+        /// Example: "None", "Light", "Medium", "Heavy", "Structure"
+        /// </summary>
+        public string ArmorType;
+
+        /// <summary>
+        /// List of weapon definition IDs to attach as Armament abilities.
+        /// References WeaponDef.Id in the CombatRegistry.
+        /// Example: ["cannon_105mm", "mg_coaxial"]
+        /// </summary>
+        public List<string> Weapons;
+
         public static UnitData FromVector3(string id, int health, Vector3 pos, string prefab = null, string model = null, bool isPrimary = false, bool useParentPosition = false, bool bindParentRotation = false, List<UnitData> children = null, List<string> abilities = null)
         {
             return new UnitData

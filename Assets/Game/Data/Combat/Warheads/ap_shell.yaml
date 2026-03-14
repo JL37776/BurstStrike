@@ -1,0 +1,10 @@
+﻿# AP shell warhead — good vs medium/heavy armor
+# Reference: SC:BW Explosive damage type
+Id: ap_shell
+Damage: 40
+DamageType: ArmorPiercing
+SplashRadius: 0
+# VsArmor: [None, Light, Medium, Heavy, Structure, Heroic]
+VsArmor: [50, 75, 100, 100, 75, 100]
+AffectsAllies: false
+AffectsSelf: false

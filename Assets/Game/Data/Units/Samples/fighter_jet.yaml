@@ -1,0 +1,30 @@
+﻿# Fighter Jet — high-altitude air unit
+# References: RA2 Harrier, SC:BW Wraith
+Id: "fighter_jet"
+ArchetypeId: 20
+Health: 150
+Layer: AirHigh
+AlertLayer: HighAir
+IsPrimary: true
+Position: [0, 5, 0]
+
+ArmorType: "Light"
+Weapons:
+  - "air_cannon_20mm"
+  - "aa_missile"
+
+AbilityParams:
+  Movement:
+    MaxSpeed: 6
+    Acceleration: 2
+    TurnSpeedDeg: 45
+  Guard:
+    AlertRange: 10
+    AlertLayers: [Ground, LowAir, HighAir, Ocean]
+
+Abilities:
+  - "BaseUnit"
+  - "Movement"
+  - "Navigation"
+  - "Guard"
+  - "Weapon"

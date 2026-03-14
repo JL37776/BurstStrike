@@ -1,0 +1,31 @@
+﻿# Medium Tank — ground combat vehicle
+# References: RA2 Grizzly Tank, SC:BW Siege Tank
+Id: "tank_medium"
+ArchetypeId: 10
+Health: 400
+Layer: Tanks
+AlertLayer: Ground
+IsPrimary: true
+Position: [0, 0, 0]
+
+# Combat system
+ArmorType: "Medium"
+Weapons:
+  - "cannon_105mm"
+  - "mg_standard"
+
+AbilityParams:
+  Movement:
+    MaxSpeed: 2
+    Acceleration: 1
+    TurnSpeedDeg: 90
+  Guard:
+    AlertRange: 8
+    AlertLayers: [Ground, LowAir]
+
+Abilities:
+  - "BaseUnit"
+  - "Movement"
+  - "Navigation"
+  - "Guard"
+  - "Weapon"

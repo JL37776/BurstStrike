@@ -368,6 +368,7 @@ GameObject:
   - component: {fileID: 1336467302}
   - component: {fileID: 1336467301}
   - component: {fileID: 1336467300}
+  - component: {fileID: 1336467303}
   m_Layer: 0
   m_Name: World
   m_TagString: Untagged
@@ -387,13 +388,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d819207bdb9444298acc52ee5271dd09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  spawnCount: 600
+  spawnCount: 100
   delaySeconds: 5
   spawnRadius: 15
   randomSeed: 0
   yamlAssetPath: Assets/Game/Serialization/Samples/tank_example.yaml
   overrideWorldDebugMapSize: 1
-  debugMapSize: 50
+  debugMapSize: 100
   logicTickRate: 10
   enableRandomMove: 1
   moveIntervalSeconds: 1
@@ -416,12 +417,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tickRate: 10
-  logSnapshots: 0
-  snapshotLogIntervalSeconds: 10
-  snapshotPrintHeadCount: 5
-  snapshotPrintTail: 0
-  logRenderIds: 0
-  renderIdLogIntervalSeconds: 2
   enableRendering: 1
   renderUnitSize: 0.5
   renderRoot: {fileID: 0}
@@ -437,6 +432,19 @@ MonoBehaviour:
   autoRemoveRenderProxies: 1
   renderProxyDespawnGraceSeconds: 0.5
   renderProxyCleanupIntervalSeconds: 0.25
+  gameMode: 0
+  serverHost: 127.0.0.1
+  serverPort: 9050
+  maxPlayersPerRoom: 2
+  countdownTicks: 90
+  authToken: 
+  roomId: 
+  logSnapshots: 0
+  snapshotLogIntervalSeconds: 10
+  snapshotPrintHeadCount: 5
+  snapshotPrintTail: 0
+  logRenderIds: 0
+  renderIdLogIntervalSeconds: 2
   renderDebugTankMap: 1
   debugTankMapSize: 5
   debugTankMapCellSize: 0.5
@@ -470,6 +478,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1336467303
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1336467299}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b75f190e688542368fafab548406aa85, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

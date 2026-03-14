@@ -1,0 +1,6 @@
+﻿# Medium tank shell — straight line, larger hit zone
+Id: shell_medium
+Type: Bullet
+Speed: 300
+MaxLifetime: 150
+HitRadius: 192

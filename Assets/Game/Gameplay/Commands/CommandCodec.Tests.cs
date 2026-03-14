@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if UNITY_EDITOR || ENABLE_TEST_DEBUG
+using System;
 using Game.Scripts.Fixed;
 
 namespace Game.Command
@@ -22,3 +23,4 @@ namespace Game.Command
         }
     }
 }
+#endif

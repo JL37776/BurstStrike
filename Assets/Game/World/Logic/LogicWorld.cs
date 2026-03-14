@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using Game.Combat;
 using Game.Scripts.Fixed;
 using Game.Unit;
 using Game.Unit.Ability.BaseAbilities;
@@ -89,6 +90,25 @@ namespace Game.World.Logic
 
         private readonly AbilityTickRates _abilityTickRates;
         private readonly ActivityTickRates _activityTickRates;
+
+        // ── Combat ───────────────────────────────────────────────────────
+        private CombatRegistry _combatRegistry;
+        /// <summary>Combat definitions (weapons, warheads, projectiles). Set after construction.</summary>
+        public CombatRegistry CombatData => _combatRegistry ?? CombatRegistry.Empty;
+
+        // Active projectiles — ticked each logic tick, removed when finished.
+        private readonly List<ProjectileActor> _projectiles = new List<ProjectileActor>(64);
+        // Pending additions (avoids modifying list while iterating).
+        private readonly List<ProjectileActor> _projectilesPending = new List<ProjectileActor>(16);
+
+        /// <summary>Inject combat data. Must be called before Run() or during setup.</summary>
+        public void SetCombatRegistry(CombatRegistry registry) { _combatRegistry = registry; }
+
+        // Reusable list for spatial queries (avoids per-frame allocation).
+        private readonly List<Actor> _spatialQueryResult = new List<Actor>(64);
+
+        // Reusable snapshot array (avoids per-tick allocation). Resized if actor count changes.
+        private RenderUnitSnapshot[] _snapshotBuffer = new RenderUnitSnapshot[256];
 
         public LogicWorld(int tickRate, ConcurrentQueue<ILogicInput> input, ConcurrentQueue<ILogicOutput> output, Game.Map.IMap map = null, int enemySearchPartitionCellSize = 5, AbilityTickRates? abilityTickRates = null, ActivityTickRates? activityTickRates = null)
         {
@@ -181,6 +201,137 @@ namespace Game.World.Logic
             // Prime partition index too.
             try { _enemySearch?.UpdateActorPartition(actor); }
             catch { /* don't throw in logic thread */ }
+        }
+
+        /// <summary>Remove an actor from the world (deferred-safe). Uses swap-remove for O(1).</summary>
+        public void RemoveActor(Actor actor)
+        {
+            if (actor == null) return;
+            if (actor.Id != 0) _actorById.Remove(actor.Id);
+            int idx = _actors.IndexOf(actor);
+            if (idx < 0) return;
+            int last = _actors.Count - 1;
+            if (idx != last)
+                _actors[idx] = _actors[last];
+            _actors.RemoveAt(last);
+        }
+
+        // ── Combat helpers (called from Armament / ProjectileActor) ─────
+
+        /// <summary>
+        /// Spawn a projectile into the logic world. Called from Armament.ExecuteFire().
+        /// </summary>
+        internal void SpawnProjectile(WeaponDef weaponDef, ProjectileDef projDef, string warheadId,
+            Actor source, Actor target, FixedVector3 startPos, FixedVector3 targetPos)
+        {
+            if (projDef == null) return;
+            var proj = new ProjectileActor(projDef, weaponDef, warheadId, source, target, startPos, targetPos);
+            _projectilesPending.Add(proj);
+        }
+
+        /// <summary>
+        /// Find all actors within radius of a point. Returns a reusable list (do not cache!).
+        /// Uses spatial partition index when available for O(k) instead of O(n).
+        /// </summary>
+        public List<Actor> FindActorsInRadius(FixedVector3 center, int radiusLogicUnits)
+        {
+            _spatialQueryResult.Clear();
+
+            var radiusFixed = Fixed.FromRaw(radiusLogicUnits);
+            var rSqFixed = radiusFixed * radiusFixed;
+
+            // Brute-force scan — all actors. Partition-accelerated scan is left as
+            // a future optimization (EnemySearchService partitions are per-faction,
+            // but FindActorsInRadius needs ALL factions for splash damage).
+            for (int i = 0; i < _actors.Count; i++)
+            {
+                var a = _actors[i];
+                if (a == null) continue;
+
+                // Hot path: use indexed for-loop instead of foreach to avoid enumerator allocation
+                Location loc = null;
+                var abs = a.Abilities;
+                for (int j = 0; j < abs.Count; j++)
+                {
+                    if (abs[j] is Location l) { loc = l; break; }
+                }
+                if (loc == null) continue;
+
+                var diff = center - loc.Position;
+                var distSq = diff.SqrMagnitude();
+                if (distSq.Raw <= rSqFixed.Raw)
+                    _spatialQueryResult.Add(a);
+            }
+
+            return _spatialQueryResult;
+        }
+
+        private void TickProjectiles()
+        {
+            // Merge pending projectiles
+            if (_projectilesPending.Count > 0)
+            {
+                for (int i = 0; i < _projectilesPending.Count; i++)
+                    _projectiles.Add(_projectilesPending[i]);
+                _projectilesPending.Clear();
+            }
+
+            // Tick all, then compact finished entries with swap-and-truncate (O(n), not O(n²)).
+            for (int i = 0; i < _projectiles.Count; i++)
+            {
+                var p = _projectiles[i];
+                try { p.Tick(this); }
+                catch { p.Finished = true; }
+            }
+
+            // Remove finished: swap last alive into each hole, shrink count.
+            int writeIdx = 0;
+            for (int i = 0; i < _projectiles.Count; i++)
+            {
+                if (!_projectiles[i].Finished)
+                {
+                    if (writeIdx != i)
+                        _projectiles[writeIdx] = _projectiles[i];
+                    writeIdx++;
+                }
+            }
+            if (writeIdx < _projectiles.Count)
+                _projectiles.RemoveRange(writeIdx, _projectiles.Count - writeIdx);
+        }
+
+        private void CleanupDeadActors()
+        {
+            // Compact dead/null actors with single-pass swap (O(n), not O(n²)).
+            int writeIdx = 0;
+            for (int i = 0; i < _actors.Count; i++)
+            {
+                var a = _actors[i];
+                if (a == null) continue;
+
+                // Check if Health says dead
+                bool dead = false;
+                for (int j = 0; j < a.Abilities.Count; j++)
+                {
+                    if (a.Abilities[j] is Health h && h.IsDead)
+                    {
+                        dead = true;
+                        break;
+                    }
+                }
+
+                if (dead)
+                {
+                    if (a.Id != 0) _actorById.Remove(a.Id);
+                    // Future: enqueue death event for rendering (explosion VFX, etc.)
+                    continue; // skip — don't copy to writeIdx
+                }
+
+                if (writeIdx != i)
+                    _actors[writeIdx] = a;
+                writeIdx++;
+            }
+            if (writeIdx < _actors.Count)
+                _actors.RemoveRange(writeIdx, _actors.Count - writeIdx);
         }
 
         public void Run(CancellationToken token)
@@ -299,8 +450,10 @@ namespace Game.World.Logic
 
                 // Tick abilities first (movement parameters, weapons, etc.), then the current top activity.
                 // Abilities are expected to be side-effect free with respect to Unity APIs (logic thread).
-                foreach (var ab in a.Abilities)
+                var abs = a.Abilities;
+                for (int ai = 0; ai < abs.Count; ai++)
                 {
+                    var ab = abs[ai];
                     if (!ShouldTickAbility(ab)) continue;
                     try { ab?.Tick(); }
                     catch { /* don't throw in logic thread */ }
@@ -324,21 +477,30 @@ namespace Game.World.Logic
                 catch { /* don't throw in logic thread */ }
             }
 
+            // 3b) Tick projectiles (separate from actors — projectiles are lightweight).
+            TickProjectiles();
+
+            // 3c) Remove dead actors (deferred to avoid modifying list during iteration).
+            CleanupDeadActors();
+
             _tick++;
 
             // 4) Publish snapshots.
-            // RenderSnapshot: lightweight, high-frequency.
+            // RenderSnapshot: lightweight, high-frequency — always needed.
             _out.Enqueue(BuildRenderSnapshot());
-            // LogicSnapshot: heavier debug snapshot (optional, can be disabled later).
-            _out.Enqueue(BuildSnapshot());
+            // LogicSnapshot: heavier debug snapshot — only when main thread has logging enabled.
+            if (WorldDebugAccess.ShouldBuildLogicSnapshot)
+                _out.Enqueue(BuildSnapshot());
         }
 
         private RenderSnapshot BuildRenderSnapshot()
         {
-            // Instead of flattening everything and filtering, render only root actors (registered units).
-            // This matches WorldTestSpawner's unitId mapping and avoids child actors causing extra/unstable ids.
-            var units = new RenderUnitSnapshot[_actors.Count];
-            for (int i = 0; i < _actors.Count; i++)
+            // Reuse buffer; only re-allocate if actor count grew.
+            int count = _actors.Count;
+            if (_snapshotBuffer.Length < count)
+                _snapshotBuffer = new RenderUnitSnapshot[count + count / 4]; // grow with 25% headroom
+
+            for (int i = 0; i < count; i++)
             {
                 var a = _actors[i];
                 FixedVector3 pos = FixedVector3.Zero;
@@ -461,10 +623,15 @@ namespace Game.World.Logic
                 }
                 catch { /* debug-only */ }
 
-                units[i] = new RenderUnitSnapshot(id, i, pos, rot, factionId, playerId, cFixed, currentHp, maxHp, topActivity, activityStack, abilities, childCount, childAbilities, rootArchId);
+                _snapshotBuffer[i] = new RenderUnitSnapshot(id, i, pos, rot, factionId, playerId, cFixed, currentHp, maxHp, topActivity, activityStack, abilities, childCount, childAbilities, rootArchId);
             }
 
-            return new RenderSnapshot(_tick, units);
+            // Copy active region to a right-sized array for the snapshot.
+            // This allocation is unavoidable (snapshot crosses thread boundary), but the
+            // per-unit construction above avoids re-building the full buffer.
+            var result = new RenderUnitSnapshot[count];
+            Array.Copy(_snapshotBuffer, result, count);
+            return new RenderSnapshot(_tick, result);
         }
 
         private LogicSnapshot BuildSnapshot()
@@ -618,6 +785,264 @@ namespace Game.World.Logic
         public override string ToString()
         {
             return $"[{Index}] {Name} hp={(Hp.HasValue ? Hp.Value.ToString() : "-")} pos={(Position.HasValue ? Position.Value.ToString() : "-")}";
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    //  ProjectileActor — lightweight logic-only projectile
+    // ═════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Runtime projectile in the logic world. Not a full Actor — kept in a separate list
+    /// for performance (projectiles don't need occupancy, enemy search, activity stacks).
+    /// Reference: OpenRA Projectile / RA2 BulletType.
+    /// </summary>
+    internal sealed class ProjectileActor
+    {
+        public readonly ProjectileDef Def;
+        public readonly WeaponDef WeaponDef;
+        public readonly string WarheadId;
+        public readonly Actor Source;
+        public readonly Actor Target;       // may be null for ground-target
+        public readonly FixedVector3 TargetPos;
+
+        public FixedVector3 Position;
+        public FixedVector3 Velocity;
+        public int Lifetime;
+        public int PierceCount;
+        public bool Finished;
+
+        // Cached for ballistic arc calculation
+        public readonly FixedVector3 StartPos;
+
+        public ProjectileActor(ProjectileDef def, WeaponDef weaponDef, string warheadId,
+            Actor source, Actor target, FixedVector3 startPos, FixedVector3 targetPos)
+        {
+            Def = def;
+            WeaponDef = weaponDef;
+            WarheadId = warheadId;
+            Source = source;
+            Target = target;
+            TargetPos = targetPos;
+            Position = startPos;
+            StartPos = startPos;
+            Velocity = FixedVector3.Zero;
+        }
+
+        public void Tick(LogicWorld world)
+        {
+            if (Finished) return;
+            Lifetime++;
+            if (Lifetime > Def.MaxLifetime) { Finished = true; return; }
+
+            switch (Def.Type)
+            {
+                case ProjectileType.Bullet:  TickBullet(); break;
+                case ProjectileType.Missile: TickMissile(); break;
+                case ProjectileType.Ballistic: TickBallistic(); break;
+                case ProjectileType.Torpedo: TickMissile(); break; // same tracking, render constrains Y
+                case ProjectileType.Beam:    TickBeam(world); return;
+            }
+
+            CheckHit(world);
+        }
+
+        private void TickBullet()
+        {
+            var diff = TargetPos - Position;
+            if (diff.SqrMagnitude().Raw == 0) { Finished = true; return; }
+            var dir = diff.Normalized();
+            var speed = Fixed.FromRaw(Def.Speed << 10); // scale to Fixed
+            Velocity = dir * speed;
+            Position = Position + Velocity;
+        }
+
+        private void TickMissile()
+        {
+            var actualTarget = (Target != null && !IsTargetDead())
+                ? GetTargetPosition() : TargetPos;
+            var diff = actualTarget - Position;
+            if (diff.SqrMagnitude().Raw == 0) { Finished = true; return; }
+            var desired = diff.Normalized();
+            var speed = Fixed.FromRaw(Def.Speed << 10);
+
+            if (Def.TurnRate > 0 && Velocity.SqrMagnitude().Raw > 0)
+            {
+                // Limited turning — interpolate direction
+                var curDir = Velocity.Normalized();
+                var turnFrac = Fixed.FromRatio(Def.TurnRate, 1024);
+                var newDir = new FixedVector3(
+                    curDir.x + (desired.x - curDir.x) * turnFrac,
+                    curDir.y + (desired.y - curDir.y) * turnFrac,
+                    curDir.z + (desired.z - curDir.z) * turnFrac
+                ).Normalized();
+                Velocity = newDir * speed;
+            }
+            else
+            {
+                Velocity = desired * speed;
+            }
+
+            Position = Position + Velocity;
+        }
+
+        private void TickBallistic()
+        {
+            // Use StartPos → TargetPos for total distance (computed once is fine since these are readonly)
+            var totalDiff = TargetPos - StartPos;
+            var totalDist = totalDiff.Magnitude();
+            var speed = Fixed.FromRaw(Def.Speed << 10);
+            if (totalDist.Raw == 0 || speed.Raw == 0) { Finished = true; return; }
+
+            int totalTicks = totalDist.Raw / speed.Raw;
+            if (totalTicks < 1) totalTicks = 1;
+
+            if (Lifetime >= totalTicks)
+            {
+                Position = TargetPos;
+                return; // will be caught by CheckHit
+            }
+
+            // Linear interpolation from start to target
+            var tNorm = Fixed.FromRatio(Lifetime, totalTicks);
+            var basePos = new FixedVector3(
+                StartPos.x + totalDiff.x * tNorm,
+                StartPos.y + totalDiff.y * tNorm,
+                StartPos.z + totalDiff.z * tNorm);
+
+            // Arc height: parabola peak at midpoint — 4*h*t*(1-t)
+            var arcH = Fixed.FromRaw(Def.ArcHeight << 10);
+            var arc = arcH * Fixed.FromInt(4) * tNorm * (Fixed.One - tNorm);
+            Position = new FixedVector3(basePos.x, basePos.y + arc, basePos.z);
+        }
+
+        private void TickBeam(LogicWorld world)
+        {
+            // Beam: instant damage on first tick, persists visually
+            if (Lifetime == 1)
+                OnHit(world);
+            if (Lifetime >= 3) // visual duration
+                Finished = true;
+        }
+
+        private void CheckHit(LogicWorld world)
+        {
+            var hitR = Fixed.FromRaw(Def.HitRadius);
+            var hitRSq = hitR * hitR;
+
+            // Check target actor
+            if (Target != null && !IsTargetDead())
+            {
+                var tPos = GetTargetPosition();
+                var dSq = (Position - tPos).SqrMagnitude();
+                if (dSq.Raw <= hitRSq.Raw)
+                {
+                    OnHit(world);
+                    return;
+                }
+            }
+
+            // Check target position (ground target / target lost)
+            var dPosSq = (Position - TargetPos).SqrMagnitude();
+            if (dPosSq.Raw <= hitRSq.Raw)
+            {
+                OnHit(world);
+            }
+        }
+
+        private void OnHit(LogicWorld world)
+        {
+            var registry = world.CombatData;
+            var warhead = registry?.GetWarhead(WarheadId);
+            if (warhead == null) { Finished = true; return; }
+
+            if (warhead.SplashRadius > 0)
+            {
+                // AOE at impact position
+                var victims = world.FindActorsInRadius(Position, warhead.SplashRadius);
+                if (victims != null)
+                {
+                    for (int i = 0; i < victims.Count; i++)
+                    {
+                        var victim = victims[i];
+                        if (victim == null) continue;
+                        if (!warhead.AffectsAllies && victim.Faction == Source?.Faction && victim != Source) continue;
+                        if (!warhead.AffectsSelf && victim == Source) continue;
+
+                        var victimLoc = FindLocation(victim);
+                        if (victimLoc == null) continue;
+
+                        int dist = (Position - victimLoc.Position).Magnitude().Raw;
+                        int falloff = warhead.GetFalloff(dist >> Fixed.SHIFT); // convert Fixed raw to integer world units
+                        if (falloff <= 0) continue;
+
+                        var armorType = GetArmorType(victim);
+                        var packet = DamageResolver.BuildPacket(warhead, WeaponDef, armorType, victim.UnitAlertLayer, Source, falloff);
+                        var health = FindHealth(victim);
+                        health?.InflictDamage(packet);
+
+                        if (warhead.DotDamagePerTick > 0 && warhead.DotDuration > 0)
+                            health?.ApplyDoT(warhead.DotDamagePerTick, warhead.DotDuration, warhead.DotDamageType, Source);
+                    }
+                }
+            }
+            else if (Target != null)
+            {
+                // Single target
+                var health = FindHealth(Target);
+                if (health != null)
+                {
+                    var armorType = GetArmorType(Target);
+                    var packet = DamageResolver.BuildPacket(warhead, WeaponDef, armorType, Target.UnitAlertLayer, Source);
+                    health.InflictDamage(packet);
+
+                    if (warhead.DotDamagePerTick > 0 && warhead.DotDuration > 0)
+                        health.ApplyDoT(warhead.DotDamagePerTick, warhead.DotDuration, warhead.DotDamageType, Source);
+                }
+            }
+
+            if (Def.Piercing && PierceCount < Def.MaxPierceCount)
+            {
+                PierceCount++;
+                // Continue flying
+            }
+            else
+            {
+                Finished = true;
+            }
+        }
+
+        private bool IsTargetDead()
+        {
+            var h = FindHealth(Target);
+            return h != null && h.IsDead;
+        }
+
+        private FixedVector3 GetTargetPosition()
+        {
+            var loc = FindLocation(Target);
+            return loc != null ? loc.Position : TargetPos;
+        }
+
+        private static Health FindHealth(Actor a)
+        {
+            if (a?.Abilities == null) return null;
+            foreach (var ab in a.Abilities) if (ab is Health h) return h;
+            return null;
+        }
+
+        private static Location FindLocation(Actor a)
+        {
+            if (a?.Abilities == null) return null;
+            foreach (var ab in a.Abilities) if (ab is Location l) return l;
+            return null;
+        }
+
+        private static ArmorType GetArmorType(Actor a)
+        {
+            if (a?.Abilities == null) return ArmorType.None;
+            foreach (var ab in a.Abilities) if (ab is Game.Unit.Ability.ArmorInfo ai) return ai.Armor;
+            return ArmorType.None;
         }
     }
 }

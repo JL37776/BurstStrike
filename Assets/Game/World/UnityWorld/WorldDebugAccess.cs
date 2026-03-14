@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+﻿﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Game.World
@@ -28,6 +28,16 @@ namespace Game.World
         // Bitmask for cross-thread flags (volatile int is allowed).
         // 1 = top, 2 = activities, 4 = abilities
         private static volatile int _renderUnitDebugMask;
+
+        // Cross-thread flag: if true, LogicWorld will build and enqueue LogicSnapshot each tick.
+        // Set by main thread based on World.logSnapshots.
+        private static volatile bool _shouldBuildLogicSnapshot = true;
+
+        public static bool ShouldBuildLogicSnapshot
+        {
+            get => _shouldBuildLogicSnapshot;
+            set => _shouldBuildLogicSnapshot = value;
+        }
 
         public static void SetRenderUnitDebugFlags(in RenderUnitDebugFlags flags)
         {
